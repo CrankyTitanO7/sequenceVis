@@ -58,8 +58,15 @@ def fg():
     else:
         amino_acids = AMINO_ALPH
 
-    # Identify position columns (-5 to +4)
-    pos_cols = [col for col in quant.columns if str(col).lstrip("-+").isdigit()]
+    # Derive position range from CHAIN_LENGTH (e.g., -5..+4 for length 10)
+    half = CHAIN_LENGTH // 2
+    expected_positions = set(range(-half, half))
+
+    # Identify position columns, filtered to the expected range
+    pos_cols = [
+        col for col in quant.columns
+        if str(col).lstrip("-+").isdigit() and int(col) in expected_positions
+    ]
     pos_cols = sorted(pos_cols, key=lambda x: int(x))
 
     fg_dict = {}
@@ -90,13 +97,20 @@ def fg():
 def fg_generate_compiled_sequence():
     df = fg()
 
-    # Strip both '-' AND '+' so all 10 position columns are selected
+    # Derive position range from CHAIN_LENGTH
+    half = CHAIN_LENGTH // 2
+    expected_positions = set(range(-half, half))
+
+    # Select only the expected position columns
     pos_cols = sorted(
-        [col for col in df.columns if str(col).lstrip("-+").isdigit()],
+        [
+            col for col in df.columns
+            if str(col).lstrip("-+").isdigit() and int(col) in expected_positions
+        ],
         key=lambda x: int(x),
     )
 
-    # Join characters across all 10 columns for each row
+    # Join characters across all position columns for each row
     compiled_seqs = df[pos_cols].astype(str).agg("".join, axis=1)
 
     # Insert compiled sequences into position 0 (the very first column)
@@ -108,8 +122,9 @@ def fg_generate_compiled_sequence():
 def bg(seq_len=CHAIN_LENGTH):
     char_matrix = rng.choice(AMINO_ALPH, size=(BG_SIZE, seq_len))
 
-    # Override position 0 (index 5) to only pick S or T
-    pos_zero_idx = 5
+    # Override position 0 to only pick S or T
+    # Position 0 is at index (CHAIN_LENGTH // 2) in the matrix
+    pos_zero_idx = seq_len // 2
     char_matrix[:, pos_zero_idx] = rng.choice(["S", "T"], size=BG_SIZE)
 
     sequences = ["".join(row) for row in char_matrix]
