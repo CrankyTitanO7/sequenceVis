@@ -1,5 +1,3 @@
 __pycache__
-input.csv
 .venv
-bg.csv
-fg.csv
+*.csv
