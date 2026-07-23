@@ -1,8 +1,8 @@
 import pandas as pd
 import numpy as np
 import biology as bio
-
-cols = list(range(-5, 5))  # -5 through 3
+LENGTH = 7
+cols = list(range(-LENGTH, LENGTH))  
 
 rng = np.random.default_rng(seed=None)
 
