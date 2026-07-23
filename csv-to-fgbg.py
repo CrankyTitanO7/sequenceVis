@@ -13,7 +13,7 @@ rng = np.random.default_rng(seed=None if TRUERAND else SEED)
 
 # temporary input constants
 FG_SIZE = 1000
-BG_SIZE = 5000
+# BG_SIZE has been removed so both generators rely on FG_SIZE to match lengths
 
 
 def norm(x, value):
@@ -104,12 +104,13 @@ def bg(seq_len=None):
         df = open_csv()
         seq_len = len(df.select_dtypes(include=[np.number]).columns)
 
-    char_matrix = rng.choice(AMINO_ALPH, size=(BG_SIZE, seq_len))
+    # Use FG_SIZE instead of BG_SIZE to ensure bg length explicitly matches fg length
+    char_matrix = rng.choice(AMINO_ALPH, size=(FG_SIZE, seq_len))
 
     # Override position 0 to only pick S or T
     # Position 0 is assumed to be exactly in the middle of the sequence
     pos_zero_idx = seq_len // 2
-    char_matrix[:, pos_zero_idx] = rng.choice(["S", "T"], size=BG_SIZE)
+    char_matrix[:, pos_zero_idx] = rng.choice(["S", "T"], size=FG_SIZE)
 
     sequences = ["".join(row) for row in char_matrix]
 
