@@ -14,7 +14,6 @@ rng = np.random.default_rng(seed=None if TRUERAND else SEED)
 # temporary input constants
 FG_SIZE = 1000
 BG_SIZE = 5000
-CHAIN_LENGTH = 10
 
 
 def norm(x, value):
@@ -39,6 +38,7 @@ def normalize(subset, val):
 
 def csv_to_quantity():
     df = open_csv()
+    # Auto-detect chain positions based on the presence of numeric data
     numeric_cols = df.select_dtypes(include=[np.number]).columns
 
     df_normalized = df.copy()
@@ -49,29 +49,20 @@ def csv_to_quantity():
 
 def fg():
     quant = csv_to_quantity()
+    numeric_cols = quant.select_dtypes(include=[np.number]).columns
 
-    # Determine amino acid labels from a 'titles' column or default alphabet
+    # Determine amino acid labels from a 'titles' column, the first column if non-numeric, or default alphabet
     if "titles" in quant.columns:
         amino_acids = quant["titles"].values
-    elif quant.columns[0].startswith("Unnamed"):
+    elif quant.columns[0] not in numeric_cols:
         amino_acids = quant[quant.columns[0]].values
     else:
         amino_acids = AMINO_ALPH
 
-    # Derive position range from CHAIN_LENGTH (e.g., -5..+4 for length 10)
-    half = CHAIN_LENGTH // 2
-    expected_positions = set(range(-half, half))
-
-    # Identify position columns, filtered to the expected range
-    pos_cols = [
-        col for col in quant.columns
-        if str(col).lstrip("-+").isdigit() and int(col) in expected_positions
-    ]
-    pos_cols = sorted(pos_cols, key=lambda x: int(x))
-
     fg_dict = {}
 
-    for col in pos_cols:
+    # Iterate over automatically detected numeric columns directly (avoids header matching)
+    for col in numeric_cols:
         counts = quant[col].round().astype(int)
 
         col_pool = []
@@ -97,21 +88,9 @@ def fg():
 def fg_generate_compiled_sequence():
     df = fg()
 
-    # Derive position range from CHAIN_LENGTH
-    half = CHAIN_LENGTH // 2
-    expected_positions = set(range(-half, half))
-
-    # Select only the expected position columns
-    pos_cols = sorted(
-        [
-            col for col in df.columns
-            if str(col).lstrip("-+").isdigit() and int(col) in expected_positions
-        ],
-        key=lambda x: int(x),
-    )
-
-    # Join characters across all position columns for each row
-    compiled_seqs = df[pos_cols].astype(str).agg("".join, axis=1)
+    # Since fg() outputs a DataFrame exclusively containing the valid position columns,
+    # we can safely join characters across all columns for each row without filtering headers.
+    compiled_seqs = df.astype(str).agg("".join, axis=1)
 
     # Insert compiled sequences into position 0 (the very first column)
     df.insert(0, "sequence", compiled_seqs)
@@ -119,11 +98,16 @@ def fg_generate_compiled_sequence():
     return df
 
 
-def bg(seq_len=CHAIN_LENGTH):
+def bg(seq_len=None):
+    if seq_len is None:
+        # Dynamically auto-detect chain length from the input CSV width
+        df = open_csv()
+        seq_len = len(df.select_dtypes(include=[np.number]).columns)
+
     char_matrix = rng.choice(AMINO_ALPH, size=(BG_SIZE, seq_len))
 
     # Override position 0 to only pick S or T
-    # Position 0 is at index (CHAIN_LENGTH // 2) in the matrix
+    # Position 0 is assumed to be exactly in the middle of the sequence
     pos_zero_idx = seq_len // 2
     char_matrix[:, pos_zero_idx] = rng.choice(["S", "T"], size=BG_SIZE)
 
