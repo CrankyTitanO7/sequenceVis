@@ -14,7 +14,7 @@ rng = np.random.default_rng(seed=None if TRUERAND else SEED)
 
 # temporary input constants
 FG_SIZE = 1000
-# BG_SIZE has been removed so both generators rely on FG_SIZE to match lengths
+BG_SIZE = 5000
 
 
 def norm(x, value):
@@ -37,19 +37,19 @@ def normalize(subset, val):
     return (subset / AMINOS) * val
 
 
-def csv_to_quantity(path):
+def csv_to_quantity(path, length):
     df = open_csv(path)
     # Auto-detect chain positions based on the presence of numeric data
     numeric_cols = df.select_dtypes(include=[np.number]).columns
 
     df_normalized = df.copy()
-    df_normalized[numeric_cols] = normalize(df[numeric_cols], FG_SIZE)
+    df_normalized[numeric_cols] = normalize(df[numeric_cols], length)
 
     return df_normalized.round(SIGFIGS)
 
 
-def gen(path):
-    quant = csv_to_quantity(path)
+def gen(path, length):
+    quant = csv_to_quantity(path, length)
     numeric_cols = quant.select_dtypes(include=[np.number]).columns
 
     # Determine amino acid labels from a 'titles' column, the first column if non-numeric, or default alphabet
@@ -71,12 +71,12 @@ def gen(path):
             col_pool.extend([aa] * count)
 
         # Handle rounding adjustments
-        if len(col_pool) < FG_SIZE:
+        if len(col_pool) < length:
             col_pool.extend(
-                rng.choice(amino_acids, size=FG_SIZE - len(col_pool))
+                rng.choice(amino_acids, size=length - len(col_pool))
             )
-        elif len(col_pool) > FG_SIZE:
-            col_pool = col_pool[:FG_SIZE]
+        elif len(col_pool) > length:
+            col_pool = col_pool[:length]
 
         col_arr = np.array(col_pool)
         rng.shuffle(col_arr)
@@ -86,8 +86,8 @@ def gen(path):
     return pd.DataFrame(gen_dict)
 
 
-def generate_compiled_sequence(path):
-    df = gen(path)
+def generate_compiled_sequence(path, length):
+    df = gen(path, length)
 
     # Since fg() outputs a DataFrame exclusively containing the valid position columns,
     # we can safely join characters across all columns for each row without filtering headers.
@@ -99,9 +99,9 @@ def generate_compiled_sequence(path):
     return df
 
 def fg():
-    return generate_compiled_sequence(PATH)
+    return generate_compiled_sequence(PATH, FG_SIZE)
 def bg():
-    return generate_compiled_sequence(BGEX_PATH)
+    return generate_compiled_sequence(BGEX_PATH, BG_SIZE)
 
 
 # tests
