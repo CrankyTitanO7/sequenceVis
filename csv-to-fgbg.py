@@ -5,6 +5,7 @@ from biology import AMINO_ALPH, AMINOS
 
 # constants and formulae
 PATH = "real_input.csv"
+BGEX_PATH = "bginput.csv"
 SIGFIGS = 2
 SEED = 42
 TRUERAND = True  # enable truly random seed
@@ -27,8 +28,8 @@ def fill_blanks(df):
     return df.replace(r'^\s*$', 0, regex=True).fillna(0)
 
 
-def open_csv():
-    df = pd.read_csv(PATH)
+def open_csv(path):
+    df = pd.read_csv(path)
     return fill_blanks(df)
 
 
@@ -36,8 +37,8 @@ def normalize(subset, val):
     return (subset / AMINOS) * val
 
 
-def csv_to_quantity():
-    df = open_csv()
+def csv_to_quantity(path):
+    df = open_csv(path)
     # Auto-detect chain positions based on the presence of numeric data
     numeric_cols = df.select_dtypes(include=[np.number]).columns
 
@@ -47,8 +48,8 @@ def csv_to_quantity():
     return df_normalized.round(SIGFIGS)
 
 
-def fg():
-    quant = csv_to_quantity()
+def gen(path):
+    quant = csv_to_quantity(path)
     numeric_cols = quant.select_dtypes(include=[np.number]).columns
 
     # Determine amino acid labels from a 'titles' column, the first column if non-numeric, or default alphabet
@@ -59,7 +60,7 @@ def fg():
     else:
         amino_acids = AMINO_ALPH
 
-    fg_dict = {}
+    gen_dict = {}
 
     # Iterate over automatically detected numeric columns directly (avoids header matching)
     for col in numeric_cols:
@@ -80,13 +81,13 @@ def fg():
         col_arr = np.array(col_pool)
         rng.shuffle(col_arr)
 
-        fg_dict[col] = col_arr
+        gen_dict[col] = col_arr
 
-    return pd.DataFrame(fg_dict)
+    return pd.DataFrame(gen_dict)
 
 
-def fg_generate_compiled_sequence():
-    df = fg()
+def generate_compiled_sequence(path):
+    df = gen(path)
 
     # Since fg() outputs a DataFrame exclusively containing the valid position columns,
     # we can safely join characters across all columns for each row without filtering headers.
@@ -97,38 +98,25 @@ def fg_generate_compiled_sequence():
 
     return df
 
-
-def bg(seq_len=None):
-    if seq_len is None:
-        # Dynamically auto-detect chain length from the input CSV width
-        df = open_csv()
-        seq_len = len(df.select_dtypes(include=[np.number]).columns)
-
-    # Use FG_SIZE instead of BG_SIZE to ensure bg length explicitly matches fg length
-    char_matrix = rng.choice(AMINO_ALPH, size=(FG_SIZE, seq_len))
-
-    # Override position 0 to only pick S or T
-    # Position 0 is assumed to be exactly in the middle of the sequence
-    pos_zero_idx = seq_len // 2
-    char_matrix[:, pos_zero_idx] = rng.choice(["S", "T"], size=FG_SIZE)
-
-    sequences = ["".join(row) for row in char_matrix]
-
-    return pd.DataFrame({"bg": sequences})
+def fg():
+    return generate_compiled_sequence(PATH)
+def bg():
+    return generate_compiled_sequence(BGEX_PATH)
 
 
 # tests
-fg_dat = fg_generate_compiled_sequence()
+fg_dat = fg()
 print("////////////// foreground generator tests //////////////")
 print(fg_dat.head())
 
 bg_dat = bg()
 print("\n////////////// background generator tests //////////////")
-print(bg_dat["bg"].head(10).tolist(), end="... and etc\n")
+print(bg_dat.head())
 print("//////////////       tests  concluded     //////////////\n")
 
 
 # export to csv
-bg_dat.to_csv("bg.csv", index=False)
+bg_dat.to_csv("bg_full.csv", index=False)
 fg_dat.to_csv("fg_full.csv", index=False)
+bg_dat.iloc[:, [0]].to_csv("bg.csv", index=False)
 fg_dat.iloc[:, [0]].to_csv("fg.csv", index=False)
