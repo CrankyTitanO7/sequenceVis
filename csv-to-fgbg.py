@@ -4,7 +4,7 @@ import numpy as np
 from biology import AMINO_ALPH, AMINOS
 
 # constants and formulae
-PATH = "input.csv"
+PATH = "real_input.csv"
 BGEX_PATH = "bginput.csv"
 SIGFIGS = 2
 SEED = 42
