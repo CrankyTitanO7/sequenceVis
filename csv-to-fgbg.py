@@ -4,7 +4,7 @@ import numpy as np
 from biology import AMINO_ALPH, AMINOS
 
 # constants and formulae
-PATH = "real_input.csv"
+PATH = "input.csv"
 BGEX_PATH = "bginput.csv"
 SIGFIGS = 2
 SEED = 42
@@ -86,8 +86,22 @@ def gen(path, length):
     return pd.DataFrame(gen_dict)
 
 
-def generate_compiled_sequence(path, length):
+def generate_compiled_sequence(path, length, numeric_cols=None):
     df = gen(path, length)
+
+    # If numeric_cols is provided, reindex the dataframe to match those columns,
+    # filling any missing columns with random amino acids
+    if numeric_cols is not None:
+        missing_cols = [col for col in numeric_cols if col not in df.columns]
+        if missing_cols:
+            fg_numeric_cols = numeric_cols
+            amino_acids = AMINO_ALPH
+            extra_data = {}
+            for col in missing_cols:
+                extra_data[col] = np.random.choice(amino_acids, size=length)
+            extra_df = pd.DataFrame(extra_data)
+            df = pd.concat([df, extra_df], axis=1)
+        df = df[numeric_cols]
 
     # Since fg() outputs a DataFrame exclusively containing the valid position columns,
     # we can safely join characters across all columns for each row without filtering headers.
@@ -100,8 +114,12 @@ def generate_compiled_sequence(path, length):
 
 def fg():
     return generate_compiled_sequence(PATH, FG_SIZE)
+
 def bg():
-    return generate_compiled_sequence(BGEX_PATH, BG_SIZE)
+    # Get the same numeric columns as foreground
+    fg_quant = csv_to_quantity(PATH, FG_SIZE)
+    fg_numeric_cols = fg_quant.select_dtypes(include=[np.number]).columns
+    return generate_compiled_sequence(BGEX_PATH, BG_SIZE, numeric_cols=fg_numeric_cols)
 
 
 # tests
